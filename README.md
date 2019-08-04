@@ -1,6 +1,6 @@
-# framework
-Some quality of life tools for C++ projects.
+#framework#
+##Some quality of life tools for C++ projects.##
 
-Types.hpp: unsigned long long int.
-Array.hpp: When std::vector is too fancy and std::array is not fancy enough.
-Rng.hpp: One function random number.
+* __Types.hpp:__ unsigned long long int.
+* __Array.hpp: When std::vector is too fancy and std::array is not fancy enough.
+* __Rng.hpp:__ One function random number.
