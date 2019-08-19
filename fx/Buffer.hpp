@@ -7,6 +7,7 @@
 // Imports.
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #include "Types.hpp"
+#include "Allocator.hpp"
 #include <cstring>
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -15,27 +16,32 @@
 namespace fx
 {
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// When std::vector is too smart and std::array is too stupid.
+	// For people that forgets to call delete.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<typename DataType> struct Array
+	template<typename T> class Buffer
 	{
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Data. Not intended to be accessed directly, but left public as an option.
+		// Data.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		DataType* Data;
+		T* Data;
 		u64 Size;
-		u64 Next;
-		u64 GrowthSize;
+		Allocator* Alloc;
+		public:
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Default constructor.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		Array ( void ) : Data(nullptr), Size(0), Next(0), GrowthSize(8) {}
+		Buffer ( void ) : Data(nullptr), Size(0), Alloc(&AllocDef) {}
+
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Explicit constructor: Non default allocator.
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		Buffer ( Allocator& _Alloc ) : Data(nullptr), Size(0), Alloc(&_Alloc) {}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Explicit constructor.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		Array ( const u64 _Size ) : Data(nullptr), Size(_Size), Next(0), GrowthSize(8)
+		Buffer ( const u64 _Size, Allocator& _Alloc = AllocDef ) : Data(nullptr), Size(_Size), Alloc(&_Alloc)
 		{
 			this->resize(_Size);
 		}
@@ -43,40 +49,42 @@ namespace fx
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Copy constructor.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		Array ( const Array<DataType>& _Array ) : Data(nullptr), Size(0), Next(_Array.Next), GrowthSize(_Array.GrowthSize)
+		Buffer ( const Buffer<T>& _Buffer ) : Data(nullptr), Size(0), Alloc(_Buffer.Alloc)
 		{
-			this->resize(_Array.Size);
-			std::memcpy(this->Data, _Array.Data, sizeof(DataType) * this->Size);
+			this->resize(_Buffer.Size);
+			std::memcpy(this->Data, _Buffer.Data, this->sizeInBytes());
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Move constructor.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		Array ( Array<DataType>&& _Array ) : Data(_Array.Data), Size(_Array.Size), Next(_Array.Next), GrowthSize(_Array.GrowthSize)
+		Buffer ( Buffer<T>&& _Buffer ) : Data(_Buffer.Data), Size(_Buffer.Size), Alloc(_Buffer.Alloc)
 		{
-			_Array.Data = nullptr;
+			_Buffer.Data = nullptr;
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Destructor.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		~Array ( void )
+		~Buffer ( void )
 		{
-			if(this->Data) delete[] this->Data;
+			this->free();
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Copy assignment.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		Array<DataType>& operator= ( const Array<DataType>& _Array )
+		Buffer<T>& operator= ( const Buffer<T>& _Buffer )
 		{
-			if(this != &_Array)
+			if(this != &_Buffer)
 			{
-				this->Next = _Array.Next;
-				this->GrowthSize = _Array.GrowthSize;
+				this->free(); // Free memory with old allocator before it is overwriten.
+
+				this->Alloc = _Buffer.Alloc;
+
+				this->resize(_Buffer.Size);
 				
-				this->resize(_Array.Size);
-				std::memcpy(this->Data, _Array.Data, sizeof(DataType) * this->Size);
+				std::memcpy(this->Data, _Buffer.Data, this->sizeInBytes());
 			}
 
 			return *this;
@@ -85,148 +93,95 @@ namespace fx
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Move assignment.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		Array<DataType>& operator= ( Array<DataType>&& _Array )
+		Buffer<T>& operator= ( Buffer<T>&& _Buffer )
 		{
-			if(this != &_Array)
+			if(this != &_Buffer)
 			{
-				if(this->Data) delete[] this->Data;
+				this->free(); // Free memory with old allocator before it is overwriten.
 				
-				this->Data = _Array.Data;
-				this->Size = _Array.Size;
-				this->Next = _Array.Next;
-				this->GrowthSize = _Array.GrowthSize;
+				this->Data = _Buffer.Data;
+				this->Size = _Buffer.Size;
+				this->Alloc = _Buffer.Alloc;
 
-				_Array.Data = nullptr;
+				_Buffer.Data = nullptr;
 			}
 
 			return *this;
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Direct buffer access. No checks if item is in buffer's bounds nor was item pushed in.
+		// Direct buffer access.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		inline DataType& operator[] ( const u64 _Index )
+		inline constexpr auto operator[] ( const u64 _Index ) -> T&
 		{
 			return this->Data[_Index];
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Return true if next == 0.
+		// Get buffer pointer.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		inline auto isEmpty ( void ) -> bool const
+		inline constexpr auto operator() ( void ) const -> T*
 		{
-			if(this->Next == 0) return true;
-			else return false;
+			return this->Data;
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Set next to 0. Memset buffer to 0.
+		// Get casted buffer pointer to save few letter.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto clear ( void ) -> void
+		template<typename C> inline constexpr auto cast ( void ) const -> C*
 		{
-			this->Next = 0;
-			std::memset(this->Data, 0, sizeof(DataType) * this->Size);
+			return reinterpret_cast<C*>(this->Data);
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Allocate new buffer with size + growth size and relocate items.
+		// Get allocator.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto grow ( void ) -> void
+		inline constexpr auto allocator ( void ) const -> Allocator&
 		{
-			auto NewData = new DataType[this->Size + this->GrowthSize];
-			
-			if(this->Data)
-			{
-				std::memcpy(NewData, this->Data, sizeof(DataType) * this->Size);
-				delete[] this->Data;
-			}
+			return *this->Alloc;
+		}
 
-			this->Data = NewData;
-			this->Size += this->GrowthSize;
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Get buffer size in units.
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		inline constexpr auto size ( void ) const -> u64
+		{
+			return this->Size;
+		}
+
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Get buffer size in bytes.
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		inline constexpr auto sizeInBytes ( void ) const -> u64
+		{
+			return sizeof(T) * this->Size;
+		}
+
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Zero memory.
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		inline auto clear ( void ) -> void
+		{
+			std::memset(this->Data, 0, sizeof(T) * this->Size);
 		}
 		
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Set next item by value given. Increase next by 1. Increase buffer's size by growth size if buffer is full.
+		// Free buffer.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto push (const DataType& _Value) -> DataType&
+		inline auto free ( void ) -> void
 		{
-			if(this->Next == this->Size) this->grow();
-
-			this->Data[this->Next] = _Value;
-			++this->Next;
-
-			return this->Data[this->Next - 1];
+			if(this->Data) this->Alloc->free(this->Data);
+			this->Data = nullptr;
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Get last item. Reduce next by 1;
+		// Delete old buffer and allocate new one.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto pull ( void ) -> DataType
+		inline auto resize ( const u64 _Size ) -> void
 		{
-			if(this->Next != 0)
-			{
-				--this->Next;
-				return this->Data[this->Next];
-			}
-
-			return DataType();
-		}
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Allocate new buffer with given size. Optionaly relocate as much old items that can fit new size.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto resize ( const u64 _Size, const bool _Relocate = false ) -> void
-		{
-			auto NewData = new DataType[_Size];
-
-			if(this->Data)
-			{
-				if(_Relocate)
-				{
-					auto RelocateSize = u64(0);
-
-					if(_Size >= (this->Next - 1)) RelocateSize = this->Next - 1;
-
-					else
-					{
-						RelocateSize = _Size;
-						this->Next = _Size + 1;
-					}
-				
-					std::memcpy(NewData, this->Data, sizeof(DataType) * RelocateSize);
-				}
-
-				else this->Next = 0;
-
-				delete[] this->Data;
-			}
-
-			this->Data = NewData;
+			this->free();
 			this->Size = _Size;
-		}
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Allocate new buffer that fits items perfectly.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto fit ( void ) -> void
-		{
-			if(this->Data)
-			{
-				if(this->Next == 0)
-				{
-					delete[] this->Data;
-				}
-
-				else
-				{
-					auto NewData = new DataType[this->Next];
-					std::memcpy(NewData, this->Data, sizeof(DataType) * this->Next);
-
-					delete[] this->Data;
-					this->Data = NewData;
-					this->Size = this->Next;
-				}
-			}
+			this->Data = reinterpret_cast<T*>(this->Alloc->alloc(sizeof(T) * this->Size));
 		}
 	};
 }

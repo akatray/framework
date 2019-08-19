@@ -6,86 +6,35 @@
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Imports.
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#include <cstdint>
-#include <string>
+#include "Types.hpp"
+#include <cmath>
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Framework.
+// Framework - Blackmagic.
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-namespace fx
+namespace fx::math
 {
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Type renaming.
+	// Get index into 1D array from 2D coordinates.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	using ptr = void*;
-	
-	using u8 = std::uint8_t;
-	using u16 = std::uint16_t;
-	using u32 = std::uint32_t;
-	using u64 = std::uint64_t;
-
-	using i8 = std::int8_t;
-	using i16 = std::int16_t;
-	using i32 = std::int32_t;
-	using i64 = std::int64_t;
-
-	using r32 = float;
-	using r64 = double;
-
-	using str = std::string;
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Enum for types.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	enum struct TypeToken
+	inline constexpr auto index2d ( const u64 _X, const u64 _Y, const u64 MaxY) -> u64
 	{
-		U8,
-		U16,
-		U32,
-		U64,
-		I8,
-		I16,
-		I32,
-		I64,
-		R32,
-		R64
-	};
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Get type size by token.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	inline constexpr auto getTypeSize ( const TypeToken _Type ) -> u64
-	{
-		if(_Type == TypeToken::U8) return sizeof(u8);
-		if(_Type == TypeToken::U16) return sizeof(u16);
-		if(_Type == TypeToken::U32) return sizeof(u32);
-		if(_Type == TypeToken::U64) return sizeof(u64);
-		if(_Type == TypeToken::I8) return sizeof(i8);
-		if(_Type == TypeToken::I16) return sizeof(i16);
-		if(_Type == TypeToken::I32) return sizeof(i32);
-		if(_Type == TypeToken::I64) return sizeof(i64);
-		if(_Type == TypeToken::R32) return sizeof(r32);
-		if(_Type == TypeToken::R64) return sizeof(r64);
-
-		return 0;
+		return _Y + MaxY * _X;
 	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Get type name by token.
+	// Get index into 1D array from 3D coordinates.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	inline auto getTypeName ( const TypeToken _Type ) -> str
+	inline constexpr auto index3d ( const u64 _X, const u64 _Y, const u64 _Z, const u64 MaxY, const u64 _MaxZ ) -> u64
 	{
-		if(_Type == TypeToken::U8) return str("u8");
-		if(_Type == TypeToken::U16) return str("u16");
-		if(_Type == TypeToken::U32) return str("u32");
-		if(_Type == TypeToken::U64) return str("u64");
-		if(_Type == TypeToken::I8) return str("i8");
-		if(_Type == TypeToken::I16) return str("i16");
-		if(_Type == TypeToken::I32) return str("i32");
-		if(_Type == TypeToken::I64) return str("i64");
-		if(_Type == TypeToken::R32) return str("r32");
-		if(_Type == TypeToken::R64) return str("r64");
+		return _Z + _MaxZ * (_Y + MaxY * _X);
+	}
 
-		return str("none");
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Get index into 1D array from 4D coordinates.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	inline constexpr auto index4d ( const u64 _X, const u64 _Y, const u64 _Z, const u64 _W, const u64 _MaxY, const u64 _MaxZ, const u64 _MaxW ) -> u64
+	{
+		return _W + _MaxW * (_Z + _MaxZ * (_Y + _MaxY * _X));
 	}
 }
