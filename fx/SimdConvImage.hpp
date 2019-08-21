@@ -40,7 +40,7 @@ namespace fx::simd
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Explicit constructor.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		ConvImage ( const u64 _Width, const u64 _Height, const u64 _Depth, const u64 _Radius ) : Data(AllocSimd32), Width(_Width), Height(_Height), Depth(_Depth), Radius(_Radius)
+		ConvImage ( const u64 _Width, const u64 _Height, const u64 _Depth, const u64 _Radius ) : Data(AllocSimd), Width(_Width), Height(_Height), Depth(_Depth), Radius(_Radius)
 		{
 			this->BlocksCount = _Width * _Height * _Depth;
 			this->BlockSize = ((this->Radius * 2) + 1) * ((this->Radius * 2) + 1);
@@ -76,7 +76,7 @@ namespace fx::simd
 
 					else
 					{
-						this->Data[Offset] = _Location[math::index3d(x + xf, y + yf, d, this->Height, this->Depth)];
+						this->Data[Offset] = _Location[math::index(x + xf, y + yf, d, this->Height, this->Depth)];
 						++Offset;
 					}
 				}}
@@ -119,7 +119,7 @@ namespace fx::simd
 				}
 
 				auto Unpack = reinterpret_cast<r32*>(&RegResult);
-				_Output[math::index3d(x, y, d, this->Height, this->Depth)] = Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3] + Unpack[4] + Unpack[5] + Unpack[6] + Unpack[7] + (*InData * *InFilter); // C++ Syntax == best syntax.
+				_Output[math::index(x, y, d, this->Height, this->Depth)] = Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3] + Unpack[4] + Unpack[5] + Unpack[6] + Unpack[7] + (*InData * *InFilter); // C++ Syntax == best syntax.
 
 				InFilter = _Filter;
 				InData += 1;

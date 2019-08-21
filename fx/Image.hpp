@@ -96,8 +96,8 @@ namespace fx::img
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Inbuilt filters.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	const r32 KernelBoxBlur3x3[] = {0.11111, 0.11111, 0.11111, 0.11111, 0.11111, 0.11111, 0.11111, 0.11111, 0.11111};
-	const r32 KernelBoxBlur5x5[] = {0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04};
+	const r32 KernelBoxBlur3x3[] = {0.11111f, 0.11111f, 0.11111f, 0.11111f, 0.11111f, 0.11111f, 0.11111f, 0.11111f, 0.11111f};
+	const r32 KernelBoxBlur5x5[] = {0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f};
 
 }
 
@@ -205,16 +205,10 @@ namespace fx
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Exotic way of getting attributes.
+		// Destructor.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		inline constexpr auto operator[] ( const char _Attrib ) -> u64 // Pray for optimizer to inline this instead of calling.
+		~Image ( void )
 		{
-			if(_Attrib == 'w') return this->Width;
-			else if(_Attrib == 'h') return this->Height;
-			else if(_Attrib == 'd') return this->Depth;
-			else if(_Attrib == 'p') return (this->Width * this->Height * this->Depth);
-			else if(_Attrib == 's') return (this->Width * this->Height * this->Depth * getTypeSize(this->Type));
-			else return 0;
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -223,13 +217,6 @@ namespace fx
 		inline constexpr auto operator() ( void ) -> Buffer<u8>& // Pray for optimizer to inline this instead of calling.
 		{
 			return this->Data;
-		}
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Destructor.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		~Image ( void )
-		{
 		}
 
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -597,26 +584,26 @@ namespace fx
 				const auto RadiusMin = -i64(_Radius);
 				const auto RadiusMax = i64(_Radius+1);
 					
-				for(auto d = u64(0); d < i64(this->Depth); ++d) { for(auto y = i64(0); y < i64(this->Height); ++y) { for(auto x = i64(0); x < i64(this->Width); ++x)
+				for(auto d = u64(0); d < this->Depth; ++d) { for(auto y = i64(0); y < i64(this->Height); ++y) { for(auto x = i64(0); x < i64(this->Width); ++x)
 				{
 					auto Result = r32(0.0f);
 					auto FilterOff = u64(0);
 
 					for(auto yf = RadiusMin; yf != RadiusMax; ++yf) { for(auto xf = RadiusMin; xf != RadiusMax; ++xf)
 					{
-						if(((x + xf) < 0) || ((y + yf) < 0) || ((x + xf) >= this->Width) || ((y + yf) >= this->Height))
+						if(((x + xf) < 0) || ((y + yf) < 0) || ((x + xf) >= i64(this->Width)) || ((y + yf) >= i64(this->Height)))
 						{
 							++FilterOff;
 						}
 
 						else
 						{
-							Result += this->Data.cast<r32>()[math::index3d(x + xf, y + yf, d, this->Height, this->Depth)] * _Filter[FilterOff];
+							Result += this->Data.cast<r32>()[math::index(x + xf, y + yf, d, this->Height, this->Depth)] * _Filter[FilterOff];
 							++FilterOff;
 						}
 					}}
 
-					NewImage.Data.cast<r32>()[math::index3d(x, y, d, this->Height, this->Depth)] = Result;
+					NewImage.Data.cast<r32>()[math::index(x, y, d, this->Height, this->Depth)] = Result;
 
 				}}}
 

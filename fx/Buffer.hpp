@@ -9,6 +9,7 @@
 #include "Types.hpp"
 #include "Allocator.hpp"
 #include <cstring>
+#include <exception>
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Framework.
@@ -16,7 +17,7 @@
 namespace fx
 {
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// For people that forgets to call delete.
+	// With great power comes undefined behaviour.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	template<typename T> class Buffer
 	{
@@ -26,6 +27,7 @@ namespace fx
 		T* Data;
 		u64 Size;
 		Allocator* Alloc;
+		template <typename C> friend class Buffer; // Friend of it self. Alexa, this is so sad. Play despacito.
 		public:
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -39,9 +41,9 @@ namespace fx
 		Buffer ( Allocator& _Alloc ) : Data(nullptr), Size(0), Alloc(&_Alloc) {}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Explicit constructor.
+		// Explicit constructor: Resize on construction.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		Buffer ( const u64 _Size, Allocator& _Alloc = AllocDef ) : Data(nullptr), Size(_Size), Alloc(&_Alloc)
+		Buffer ( const u64 _Size, Allocator& _Alloc = AllocDef ) : Data(nullptr), Size(0), Alloc(&_Alloc)
 		{
 			this->resize(_Size);
 		}
@@ -56,11 +58,40 @@ namespace fx
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Casting copy constructor. For cases when you want reinterpret buffer object instead buffer pointer.
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		template<typename C> Buffer ( const Buffer<C>& _Buffer ) : Data(nullptr), Size(0), Alloc(_Buffer.Alloc)
+		{
+			if((_Buffer.sizeInBytes() % sizeof(T)) == 0)
+			{
+				this->resize(_Buffer.sizeInBytes() / sizeof(T));
+				std::memcpy(this->Data, _Buffer.Data, this->sizeInBytes());
+			}
+
+			else throw std::bad_cast();
+		}
+
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Move constructor.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		Buffer ( Buffer<T>&& _Buffer ) : Data(_Buffer.Data), Size(_Buffer.Size), Alloc(_Buffer.Alloc)
 		{
 			_Buffer.Data = nullptr;
+		}
+
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Casting move constructor. For cases when you want reinterpret buffer object instead buffer pointer.
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		template<typename C> Buffer ( Buffer<C>&& _Buffer ) : Data(nullptr), Size(0), Alloc(_Buffer.Alloc)
+		{
+			if((_Buffer.sizeInBytes() % sizeof(T)) == 0)
+			{
+				this->Size = _Buffer.sizeInBytes() / sizeof(T);
+				this->Data = reinterpret_cast<T*>(_Buffer.Data);
+				_Buffer.Data = nullptr;
+			}
+
+			else throw std::bad_cast();
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -74,11 +105,11 @@ namespace fx
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Copy assignment.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		Buffer<T>& operator= ( const Buffer<T>& _Buffer )
+		auto operator= ( const Buffer<T>& _Buffer ) -> Buffer<T>&
 		{
 			if(this != &_Buffer)
 			{
-				this->free(); // Free memory with old allocator before it is overwriten.
+				this->free();
 
 				this->Alloc = _Buffer.Alloc;
 
@@ -89,15 +120,36 @@ namespace fx
 
 			return *this;
 		}
+		
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Casting copy assignment. For cases when you want reinterpret buffer object instead buffer pointer.
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		template<typename C> auto operator= ( const Buffer<C>& _Buffer ) -> Buffer<T>&
+		{
+			if((_Buffer.sizeInBytes() % sizeof(T)) == 0)
+			{
+				this->free();
+
+				this->Alloc = _Buffer.Alloc;
+
+				this->resize(_Buffer.sizeInBytes() / sizeof(T));
+				
+				std::memcpy(this->Data, _Buffer.Data, this->sizeInBytes());
+			}
+
+			else throw std::bad_cast();
+
+			return *this;
+		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Move assignment.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		Buffer<T>& operator= ( Buffer<T>&& _Buffer )
+		auto operator= ( Buffer<T>&& _Buffer ) -> Buffer<T>&
 		{
 			if(this != &_Buffer)
 			{
-				this->free(); // Free memory with old allocator before it is overwriten.
+				this->free();
 				
 				this->Data = _Buffer.Data;
 				this->Size = _Buffer.Size;
@@ -110,9 +162,30 @@ namespace fx
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Casting move assignment. For cases when you want reinterpret buffer object instead buffer pointer.
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		template<typename C> auto operator= ( Buffer<C>&& _Buffer ) -> Buffer<T>&
+		{
+			if((_Buffer.sizeInBytes() % sizeof(T)) == 0)
+			{
+				this->free();
+				
+				this->Data = reinterpret_cast<T*>(_Buffer.Data);
+				this->Size = _Buffer.sizeInBytes() / sizeof(T);
+				this->Alloc = _Buffer.Alloc;
+
+				_Buffer.Data = nullptr;
+			}
+
+			else throw std::bad_cast();
+
+			return *this;
+		}
+
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Direct buffer access.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		inline constexpr auto operator[] ( const u64 _Index ) -> T&
+		inline constexpr auto operator[] ( const u64 _Index ) const -> T&
 		{
 			return this->Data[_Index];
 		}
@@ -154,7 +227,7 @@ namespace fx
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		inline constexpr auto sizeInBytes ( void ) const -> u64
 		{
-			return sizeof(T) * this->Size;
+			return (sizeof(T) * this->Size);
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -172,6 +245,7 @@ namespace fx
 		{
 			if(this->Data) this->Alloc->free(this->Data);
 			this->Data = nullptr;
+			this->Size = 0;
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------

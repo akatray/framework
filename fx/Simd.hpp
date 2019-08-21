@@ -11,10 +11,59 @@
 #include <immintrin.h>
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Framework - Gotta go fast.
+// Definitions.
+// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// Select one.
+//#define FX_SIMD_NOCASH
+//#define FX_SIMD_SSE
+#define FX_SIMD_AVX
+
+// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// Framework - Python can go fuck itself.
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 namespace fx::simd
 {
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// No cash renaming.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	#ifdef FX_SIMD_NOCASH
+		#define ALIGMENT_PS 8
+	#endif
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// SSE renaming.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	#ifdef FX_SIMD_SSE
+		#define ALIGMENT_PS 16
+		#define UNIT_PS 4
+		
+		#define LOAD_PS _mm_load_ps
+		#define STORE_PS _mm_store_ps
+
+		#define SETZERO_PS _mm_setzero_ps
+		#define MUL_PS _mm_mul_ps
+		#define DIV_PS _mm_div_ps
+		#define ADD_PS _mm_add_ps
+		#define SUB_PS _mm_sub_ps
+	#endif
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// AVX renaming.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	#ifdef FX_SIMD_AVX
+		#define ALIGMENT_PS 32
+		#define UNIT_PS 8
+		
+		#define LOAD_PS _mm256_load_ps
+		#define STORE_PS _mm256_store_ps
+
+		#define SETZERO_PS _mm256_setzero_ps
+		#define MUL_PS _mm256_mul_ps
+		#define DIV_PS _mm256_div_ps
+		#define ADD_PS _mm256_add_ps
+		#define SUB_PS _mm256_sub_ps
+	#endif
+
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// That rare case.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -61,8 +110,133 @@ namespace fx::simd
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Default aligned memory providers.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto AllocSimd16 = AllocatorAligned(16);
-	auto AllocSimd32 = AllocatorAligned(32);
-	auto AllocSimd64 = AllocatorAligned(64);
+	auto AllocSimd = AllocatorAligned(ALIGMENT_PS);
 
+	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	//  Out += Vec0[] * Vec1[]
+	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	inline auto mulVecByVecSum ( u64 _VecSize,  r32* _Vec0, r32* _Vec1 ) -> r32
+	{
+		// Reference version.
+		#ifdef FX_SIMD_NOCASH
+			auto Sum = r32(0.0f);
+		
+			for(auto f = u64(0); f < _VecSize; ++f) Sum += _Vec0[f] * _Vec1[f];
+
+			return Sum;
+
+		// Vectorized version.
+		#else
+			auto Fragments = u64(_VecSize / UNIT_PS);
+
+			auto Vec0 = SETZERO_PS();
+			auto Vec1 = SETZERO_PS();
+			auto Sum = SETZERO_PS();
+
+			for(auto f = u64(0); f < Fragments; ++f)
+			{
+				Vec0 = LOAD_PS(_Vec0);
+				Vec1 = LOAD_PS(_Vec1);
+
+				Vec0 = MUL_PS(Vec0, Vec1);
+			
+				Sum = ADD_PS(Sum, Vec0);
+
+				_Vec0 += UNIT_PS;
+				_Vec1 += UNIT_PS;
+			}
+
+			auto Unpack = reinterpret_cast<r32*>(&Sum);
+
+			#ifdef FX_SIMD_SSE
+				return (Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3]);
+			#endif
+
+			#ifdef FX_SIMD_AVX
+				return (Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3] + Unpack[4] + Unpack[5] + Unpack[6] + Unpack[7]);
+			#endif
+		#endif
+	}
+
+	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	//  OutVec[] += Vec0[] * Const
+	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	inline auto mulVecByConstAddToOut (u64 _VecSize, r32* _VecOut, r32* _Vec0, r32 _Const) -> void
+	{
+		// Reference version.
+		#ifdef FX_SIMD_NOCASH
+			for(auto f = u64(0); f < _VecSize; ++f) _VecOut[f] += _Vec0[f] * _Const;
+		
+		// Vectorized version.
+		#else
+			auto Fragments = u64(_VecSize / UNIT_PS);
+
+			auto VecOut = SETZERO_PS();
+			auto Vec0 = SETZERO_PS();
+
+			#ifdef FX_SIMD_SSE
+				auto Const = _mm_set_ps(_Const, _Const, _Const, _Const);
+			#endif
+
+			#ifdef FX_SIMD_AVX
+				auto Const = _mm256_set_ps(_Const, _Const, _Const, _Const, _Const, _Const, _Const, _Const);
+			#endif
+
+			for(auto f = u64(0); f < Fragments; ++f)
+			{
+				VecOut = LOAD_PS(_VecOut);
+				Vec0 = LOAD_PS(_Vec0);
+
+				Vec0 = MUL_PS(Vec0, Const);
+
+				VecOut = ADD_PS(VecOut, Vec0);
+
+				STORE_PS(_VecOut, VecOut);
+
+				_VecOut += UNIT_PS;
+				_Vec0 += UNIT_PS;
+			}
+		#endif
+	}
+
+	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	//  OutVec[] -= Vec0[] * Const
+	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	inline auto mulVecByConstSubFromOut (u64 _VecSize, r32* _VecOut, r32* _Vec0, r32 _Const) -> void
+	{
+		// Reference version.
+		#ifdef FX_SIMD_NOCASH
+			for(auto f = u64(0); f < _VecSize; ++f) _VecOut[f] -= _Vec0[f] * _Const;
+		
+		// Vectorized version.
+		#else
+			auto Fragments = u64(_VecSize / UNIT_PS);
+
+			auto VecOut = SETZERO_PS();
+			auto Vec0 = SETZERO_PS();
+
+			#ifdef FX_SIMD_SSE
+				auto Const = _mm_set_ps(_Const, _Const, _Const, _Const);
+			#endif
+
+			#ifdef FX_SIMD_AVX
+				auto Const = _mm256_set_ps(_Const, _Const, _Const, _Const, _Const, _Const, _Const, _Const);
+			#endif
+
+			for(auto f = u64(0); f < Fragments; ++f)
+			{
+				VecOut = LOAD_PS(_VecOut);
+				Vec0 = LOAD_PS(_Vec0);
+
+				Vec0 = MUL_PS(Vec0, Const);
+
+				VecOut = SUB_PS(VecOut, Vec0);
+
+				STORE_PS(_VecOut, VecOut);
+
+				_VecOut += UNIT_PS;
+				_Vec0 += UNIT_PS;
+			}
+		#endif
+	}
 }
