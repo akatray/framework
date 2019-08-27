@@ -649,6 +649,49 @@ namespace fx
 		}
 
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Resize image.
+		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		auto cut ( const u64 _V, const u64 _H ) -> std::vector<Image>
+		{
+			if(this->Data())
+			{
+				if((this->Type == TypeToken::U8) || (this->Type == TypeToken::R32))
+				{
+					auto W = this->Width / _V;
+					auto H = this->Height / _H;
+					auto S = math::Shape(this->Width, this->Height, this->Depth);
+
+					auto Cuts = std::vector<Image>(_V * _H);
+
+					auto ox = u64(0);
+					auto oy = u64(0);
+					
+					for(auto c = u64(0); c < Cuts.size(); ++c)
+					{
+						auto x = u64(0);
+						auto y = u64(0);
+						auto d = u64(0);
+						
+						Cuts[c] = Image(this->Width, this->Height, this->Depth, this->Type, this->Data.allocator());
+
+						for(auto p = u64(0); p < this->size(); ++p)
+						{
+							Cuts[c].Data.cast<r32>()[p] = this->Data.cast<r32>()[S.idx(ox + x, oy + y, d)];
+
+							++d; if(d == this->Depth) {d = 0; ++x;}
+							if(x == W) {x = 0; ++y;}
+						}
+
+						ox += W; if(ox >= this->Width) {ox = 0; oy += H;}
+					}
+
+					return std::move(Cuts);
+				}
+
+			}
+		}
+
+		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Load image from file.
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		auto load ( const str& _Filename ) -> bool

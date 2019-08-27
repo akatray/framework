@@ -23,6 +23,7 @@ namespace fx::simd
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Data.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		public:
 		Buffer<r32> Data;
 		u64 Width;
 		u64 Height;
@@ -30,22 +31,7 @@ namespace fx::simd
 		u64 Radius;
 		u64 BlocksCount;
 		u64 BlockSize;
-		public:
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Default constructor.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		ConvImage ( void ) = delete;
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Explicit constructor.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		ConvImage ( const u64 _Width, const u64 _Height, const u64 _Depth, const u64 _Radius ) : Data(AllocSimd), Width(_Width), Height(_Height), Depth(_Depth), Radius(_Radius)
-		{
-			this->BlocksCount = _Width * _Height * _Depth;
-			this->BlockSize = ((this->Radius * 2) + 1) * ((this->Radius * 2) + 1);
-			this->Data.resize(this->BlocksCount * this->BlockSize);
-		}
+		
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Destructor.
@@ -57,10 +43,17 @@ namespace fx::simd
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Build cache blocks.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		inline auto build ( const r32* _Location ) -> void
+		auto bake ( const u64 _Width, const u64 _Height, const u64 _Depth, const u64 _Radius, const r32* _Data ) -> void
 		{
-			auto Offset = u64(0);
+			this->Width = _Width;
+			this->Height = _Height;
+			this->Depth = _Depth;
+			this->Radius = _Radius;
+			this->BlocksCount = _Width * _Height * _Depth;
+			this->BlockSize = ((this->Radius * 2) + 1) * ((this->Radius * 2) + 1);
+			this->Data.resize(this->BlocksCount * this->BlockSize, AllocSimd);
 			
+			auto Offset = u64(0);
 			const auto RadiusMin = -i64(this->Radius);
 			const auto RadiusMax = i64(this->Radius + 1);
 
@@ -76,7 +69,7 @@ namespace fx::simd
 
 					else
 					{
-						this->Data[Offset] = _Location[math::index(x + xf, y + yf, d, this->Height, this->Depth)];
+						this->Data[Offset] = _Data[math::index(x + xf, y + yf, d, this->Height, this->Depth)];
 						++Offset;
 					}
 				}}

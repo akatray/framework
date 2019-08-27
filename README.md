@@ -6,6 +6,6 @@
 * __Image.hpp__: It just works.
 * __Math.hpp__: Black magic.
 * __Rng.hpp:__ One function random number.
-* __Simd.hpp:__ Gotta go fast.
+* __Simd.hpp:__ Python can go fuck itself
 * __SimdConvImage.hpp:__ Exchange massive amounts of memory for marginal improvements in perfomance.
 * __Time.hpp:__ Just in time.
