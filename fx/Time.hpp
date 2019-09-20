@@ -34,7 +34,7 @@ namespace fx::time
 	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Clock for measuring performance. Time is in milliseconds.
+	// Clock for measuring performance.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	class PerfClock
 	{
@@ -43,9 +43,9 @@ namespace fx::time
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		str Name;
 		str LastEvent;
-		u64 LastTime;
-		u64 TotalTime;
-		std::map<str, u64> Events;
+		std::chrono::nanoseconds LastTime;
+		std::chrono::nanoseconds TotalTime;
+		std::map<str, std::chrono::nanoseconds> Events;
 		public:
 		
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -56,38 +56,40 @@ namespace fx::time
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Explicit constructor: Constructs named clock.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		PerfClock ( const str _Name ) : Name(_Name), LastEvent(), LastTime(0), TotalTime(0), Events() {}
+		PerfClock ( const str& _Name ) : Name(_Name), LastEvent(), LastTime(0), TotalTime(0), Events() {}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Explicit constructor: Constructs named clock and starts event.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		PerfClock ( const str _Name, const str _Event ) : Name(_Name), LastEvent(), LastTime(0), TotalTime(0), Events() { this->begin(_Event); }
+		PerfClock ( const str& _Name, const str& _Event ) : Name(_Name), LastEvent(), LastTime(0), TotalTime(0), Events() { this->begin(_Event); }
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Get event's time.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto event ( const str _Event ) -> u64 { return this->Events[_Event]; }
+		auto timeNs ( const str& _Event ) -> u64 { return this->Events[_Event].count(); }
+		auto timeUs ( const str& _Event ) -> u64 { return std::chrono::duration_cast<std::chrono::microseconds>(this->Events[_Event]).count(); }
+		auto timeMs ( const str& _Event ) -> u64 { return std::chrono::duration_cast<std::chrono::milliseconds>(this->Events[_Event]).count(); }
+		auto timeSc ( const str& _Event ) -> u64 { return std::chrono::duration_cast<std::chrono::seconds>(this->Events[_Event]).count(); }
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Time last event and start new one.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto begin ( const str _Event ) -> void
+		auto begin ( const str& _Event ) -> void
 		{
-			auto Time = std::chrono::high_resolution_clock::now().time_since_epoch();
-			auto TimeInMs = std::chrono::duration_cast<std::chrono::milliseconds>(Time).count();
+			auto CurTime = std::chrono::high_resolution_clock::now().time_since_epoch();
 			
-			if(this->LastTime == 0)
+			if(this->LastTime == std::chrono::nanoseconds(0))
 			{
 				this->LastEvent = _Event;
-				this->LastTime = TimeInMs;
+				this->LastTime = CurTime;
 			}
 
 			else
 			{
-				this->Events[this->LastEvent] = TimeInMs - this->LastTime;
-				this->TotalTime += TimeInMs - this->LastTime;
+				this->Events[this->LastEvent] = CurTime - this->LastTime;
+				this->TotalTime += CurTime - this->LastTime;
 				this->LastEvent = _Event;
-				this->LastTime = TimeInMs;
+				this->LastTime = CurTime;
 			}
 		}
 
@@ -96,55 +98,6 @@ namespace fx::time
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		auto finish ( void ) -> void { this->begin("finish"); }
 
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Reset clock's state.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto reset ( void ) -> void
-		{
-			this->LastEvent = str();
-			this->LastTime = 0;
-			this->TotalTime = 0;
-			this->Events.clear();
-		}
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Output results to console.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto print ( void ) const -> void
-		{
-			std::cout << "------------------------------------------------------------\n";
-			std::cout << this->Name << " results:\n";
-
-			for(auto& Event : this->Events) std::cout << "  " << Event.first << ": " << Event.second << "ms.\n";
-			
-			std::cout << "\nTotal time: " << this->TotalTime << "ms.\n";
-			std::cout << "------------------------------------------------------------\n";
-		}
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Average performance clocks.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		static auto average ( const std::vector<PerfClock>& _Clocks ) -> PerfClock
-		{
-			auto AvgClock = PerfClock(_Clocks[0].Name);
-		
-			for(auto& Event : _Clocks[0].Events)
-			{
-				auto TotalEventTime = u64(0);
-				
-				for(auto c = u64(0); c < _Clocks.size(); ++c)
-				{
-					if(_Clocks[0].Name != _Clocks[c].Name) throw str("Error: fx->time->PerClock->average()"); // Vector needs to contain same clock from different iterations.
-					TotalEventTime += _Clocks[c].Events.find(Event.first)->second;
-				}
-
-				TotalEventTime /= _Clocks.size();
-
-				AvgClock.Events[Event.first] = TotalEventTime;
-			}
-
-			return AvgClock;
-		}
 	};
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

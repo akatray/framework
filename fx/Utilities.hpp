@@ -194,7 +194,6 @@ namespace fx::utl
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		constexpr inline auto idx ( void ) const -> u64
 		{
-			if(this->Shp.count() == 0) throw str("fx->utl->ShapeIter->idx(): Count was 0!");
 			if(this->Shp.count() == 1) return u64(Pos[0]);
 			if(this->Shp.count() == 2) return this->Shp.idx(u64(Pos[0]), u64(Pos[1]));
 			if(this->Shp.count() == 3) return this->Shp.idx(u64(Pos[0]), u64(Pos[1]), u64(Pos[2]));
