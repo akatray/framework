@@ -35,6 +35,24 @@ namespace fx
 	using str = std::string;
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Check if types match their expected size.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	static_assert(sizeof(ptr) == 8, "Size of fx::ptr is not 8!");
+	
+	static_assert(sizeof(u8) == 1, "Size of fx::u8 is not 1!");
+	static_assert(sizeof(u16) == 2, "Size of fx::u16 is not 2!");
+	static_assert(sizeof(u32) == 4, "Size of fx::u32 is not 4!");
+	static_assert(sizeof(u64) == 8, "Size of fx::u64 is not 8!");
+	
+	static_assert(sizeof(i8) == 1, "Size of fx::i8 is not 1!");
+	static_assert(sizeof(i16) == 2, "Size of fx::i16 is not 2!");
+	static_assert(sizeof(i32) == 4, "Size of fx::i32 is not 4!");
+	static_assert(sizeof(i64) == 8, "Size of fx::i64 is not 8!");
+	
+	static_assert(sizeof(r32) == 4, "Size of fx::r32 is not 4!");
+	static_assert(sizeof(r64) == 8, "Size of fx::r64 is not 8!");
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Enum for types.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	enum struct TypeToken
@@ -54,7 +72,7 @@ namespace fx
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Get type size by token.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	inline constexpr auto getTypeSize ( const TypeToken _Type ) -> u64
+	constexpr inline auto getTypeSize ( const TypeToken _Type ) -> u64
 	{
 		if(_Type == TypeToken::U8) return sizeof(u8);
 		if(_Type == TypeToken::U16) return sizeof(u16);
