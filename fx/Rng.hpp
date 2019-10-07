@@ -8,31 +8,31 @@
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #include "Types.hpp"
 #include <random>
+#include <type_traits>
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Framework: Random numbers and noise.
+// Framework: All things random.
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-namespace fx
+namespace fx::rng
 {
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Get random number.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template <typename T> auto rng (const T _Lower, const T _Upper, const u64 _Seed = 0) -> T
+	template<class T> auto rnum (const T _Lower, const T _Upper, const u32 _Seed = 0) -> T
 	{
-		auto Seed = u64(0);
-
+		auto Seed = u32(0);
 		if(_Seed == 0) Seed = std::random_device()();
 		else Seed = _Seed;
 
-		auto Engine = std::minstd_rand(u32(Seed));
+		auto Engine = std::minstd_rand(Seed);
 
-		if constexpr(std::is_floating_point<T>())
+		if constexpr(std::is_floating_point_v<T>)
 		{
 			auto Distro = std::uniform_real_distribution<T>(_Lower, _Upper);
 			return Distro(Engine);
 		}
 
-		else if constexpr(std::is_integral<T>())
+		else if constexpr(std::is_integral_v<T>)
 		{
 			auto Distro = std::uniform_int_distribution<T>(_Lower, _Upper);
 			return Distro(Engine);
@@ -40,29 +40,29 @@ namespace fx
 
 		else
 		{
-			static_assert(false, "Error: fx->rng()");
+			static_assert(false, "T does not satisfy requirements!");
 		}
+		
 	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Fill buffer with random numbers.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template <typename T> auto rngBuffer (T* _Buffer, const u64 _Size, const T _Lower, const T _Upper, const u64 _Seed = 0) -> void
+	template<class T> auto rbuf ( T* _Buffer, const u64 _Size, const T _Lower, const T _Upper, const u32 _Seed = 0 ) -> void
 	{
-		auto Seed = u64(0);
-
+		auto Seed = u32(0);
 		if(_Seed == 0) Seed = std::random_device()();
 		else Seed = _Seed;
 
-		auto Engine = std::minstd_rand(u32(Seed));
+		auto Engine = std::minstd_rand(Seed);
 
-		if constexpr(std::is_floating_point<T>())
+		if constexpr(std::is_floating_point_v<T>)
 		{
 			auto Distro = std::uniform_real_distribution<T>(_Lower, _Upper);
 			for(auto i = u64(0); i < _Size; ++i) _Buffer[i] = Distro(Engine);
 		}
 
-		else if constexpr(std::is_integral<T>())
+		else if constexpr(std::is_integral_v<T>)
 		{
 			auto Distro = std::uniform_int_distribution<T>(_Lower, _Upper);
 			for(auto i = u64(0); i < _Size; ++i) _Buffer[i] = Distro(Engine);
@@ -70,32 +70,36 @@ namespace fx
 
 		else
 		{
-			static_assert(false, "Error: fx->rngBuffer()");
+			static_assert(false, "T does not satisfy requirements!");
 		}
 	}
 
-	/*
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Add some noise to buffer values.
+	// Introduce noise on buffer's data.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template <class T> auto addNoise (T* _Buffer, const u64 _Size, const T _ValMin, const T _ValMax, const r32 _RngMag) -> void
+	template <typename T> auto rbufNoise ( T* _Buffer, const u64 _Size, const T _Lower, const T _Upper, const u32 _Seed = 0 ) -> void
 	{
-		auto Seed = std::random_device();
-		auto Engine = std::minstd_rand(Seed());
-		auto DisVal = std::uniform_real_distribution<r32>(_ValMin, _ValMax);
-		auto DisDir = std::uniform_int_distribution<i32>(0, 1);
-		
-		for(auto i = u64(0); i < _Size; ++i)
+		auto Seed = u64(0);
+		if(_Seed == 0) Seed = std::random_device()();
+		else Seed = _Seed;
+
+		auto Engine = std::minstd_rand(Seed);
+
+		if constexpr(std::is_floating_point<T>())
 		{
-			auto Noise = DisVal(Engine) * _RngMag;
+			auto Distro = std::uniform_real_distribution<T>(_Lower, _Upper);
+			for(auto i = u64(0); i < _Size; ++i) _Buffer[i] += Distro(Engine);
+		}
 
-			if(DisDir(Engine) == 1) Noise *= -1;
+		else if constexpr(std::is_integral<T>())
+		{
+			auto Distro = std::uniform_int_distribution<T>(_Lower, _Upper);
+			for(auto i = u64(0); i < _Size; ++i) _Buffer[i] += Distro(Engine);
+		}
 
-			if((_Buffer[i] + Noise) < _ValMin) _Buffer[i] = _ValMin;
-			else if((_Buffer[i] + Noise) > _ValMax) _Buffer[i] = _ValMax;
-			else _Buffer[i] += Noise;
+		else
+		{
+			static_assert(false, "T does not satisfy requirements!");
 		}
 	}
-	*/
 }
-

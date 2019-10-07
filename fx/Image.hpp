@@ -9,6 +9,7 @@
 #include "./Types.hpp"
 #include "./Error.hpp"
 #include "./Rng.hpp"
+
 #include "./Math.hpp"
 #include "./Buffer.hpp"
 //#include "./Array.hpp"
@@ -33,7 +34,8 @@ namespace fx::img
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Error codes for image.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	constexpr u64 ERR_DATA_NULL = 1;
+	constexpr auto ERR_DATA_NULL = u64(1);
+	constexpr auto ERR_IMAGE_NOT_FLAT = u64(2); // Had depth != 1.
 	
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Enum for image file formats.
@@ -224,6 +226,8 @@ namespace fx
 		inline auto depth ( void ) const -> u64 { return this->Depth; }
 		inline auto size ( void ) const -> u64 { return (this->Width * this->Height * this->Depth); }
 		inline auto sizeInBytes ( void ) const -> u64 { return (this->Width * this->Height * this->Depth * sizeof(T)); }
+		inline auto read ( const u64 _X, const u64 _Y, const u64 _D ) -> T { return this->Data()[math::index(_X, _Y, _D, this->Height, this->Depth)]; }
+		inline auto write ( const u64 _X, const u64 _Y, const u64 _D, const T _Val ) -> void { this->Data()[math::index(_X, _Y, _D, this->Height, this->Depth)] = _Val; }
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Flatten image to single channel.
@@ -375,16 +379,34 @@ namespace fx
 			else throw Error("fx", "Image<T>", "split", img::ERR_DATA_NULL, "Data was nullptr.");
 		}
 
-		
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// 
+		// Merge single channel images into one multi channel image.
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto addNoise ( const T _Min, const T _Max ) -> void
+		auto merge ( std::vector<Image<T>>& _Channels ) -> void
 		{
-			if(this->Data()) rngBuffer(this->Data(), this->Data.size(), _Min, _Max);
-			else throw Error("fx", "Image<T>", "addNoise", img::ERR_DATA_NULL, "Data was nullptr.");
+			if(this->Data())
+			{
+				for(auto& Channel : _Channels) if(Channel.depth() != 1) throw Error("fx", "Image<T>", "merge", img::ERR_IMAGE_NOT_FLAT, "One of images was not flat.");
+				
+				auto NewImage = Image<T>(this->Width, this->Height, _Channels.size(), this->Data.allocator());
+				auto IdxColSrc = u64(0);
+
+				for(auto IdxColDst = u64(0); IdxColDst < NewImage.size(); IdxColDst += NewImage.depth())
+				{
+					for(auto IdxCh = u64(0); IdxCh < NewImage.depth(); ++IdxCh)
+					{
+						NewImage()[IdxColDst + IdxCh] = _Channels[IdxCh]()[IdxColSrc];
+					}
+					
+					++IdxColSrc;
+				}
+
+				*this = std::move(NewImage);
+			}
+
+			else throw Error("fx", "Image<T>", "split", img::ERR_DATA_NULL, "Data was nullptr.");
 		}
-		
+
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// 
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
