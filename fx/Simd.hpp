@@ -88,6 +88,13 @@ namespace fx::simd
 		#endif
 	#endif
 
+	// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Aligned allocation/deallocation.
+	// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	template<class T> auto allocAligned ( const u64 _Size, const u64 _Alignment = ALIGMENT_PS ) -> T* { return reinterpret_cast<T*>(_mm_malloc(_Size * sizeof(T), _Alignment)); }
+	template<class T> auto freeAligned ( T* _Ptr ) -> void { _mm_free(_Ptr); }
+
+
 
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -270,7 +277,8 @@ namespace fx::simd
 		
 		// Vectorized version.
 		#else
-			auto Fragments = u64(_VecSize / UNIT_PS);
+			auto Fragments = u64(std::floor(r32(_VecSize) / UNIT_PS));
+			auto Partial = _VecSize - (Fragments * UNIT_PS);
 
 			auto VecOut = SETZERO_PS();
 			auto Vec0 = SETZERO_PS();
@@ -300,6 +308,9 @@ namespace fx::simd
 				_VecOut += UNIT_PS;
 				_Vec0 += UNIT_PS;
 			}
+
+			if(Partial != 0) for(auto f = u64(0); f < Partial; ++f) _VecOut[f] += _Vec0[f] * _Const;
+
 		#endif
 	}
 
@@ -314,7 +325,8 @@ namespace fx::simd
 		
 		// Vectorized version.
 		#else
-			auto Fragments = u64(_VecSize / UNIT_PS);
+			auto Fragments = u64(std::floor(r32(_VecSize) / UNIT_PS));
+			auto Partial = _VecSize - (Fragments * UNIT_PS);
 
 			auto VecOut = SETZERO_PS();
 			auto Vec0 = SETZERO_PS();
@@ -340,6 +352,9 @@ namespace fx::simd
 				_VecOut += UNIT_PS;
 				_Vec0 += UNIT_PS;
 			}
+
+			if(Partial != 0) for(auto f = u64(0); f < Partial; ++f) _VecOut[f] -= _Vec0[f] * _Const;
+
 		#endif
 	}
 }
