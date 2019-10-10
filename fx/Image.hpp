@@ -226,8 +226,8 @@ namespace fx
 		inline auto depth ( void ) const -> u64 { return this->Depth; }
 		inline auto size ( void ) const -> u64 { return (this->Width * this->Height * this->Depth); }
 		inline auto sizeInBytes ( void ) const -> u64 { return (this->Width * this->Height * this->Depth * sizeof(T)); }
-		inline auto read ( const u64 _X, const u64 _Y, const u64 _D ) -> T { return this->Data()[math::index(_X, _Y, _D, this->Height, this->Depth)]; }
-		inline auto write ( const u64 _X, const u64 _Y, const u64 _D, const T _Val ) -> void { this->Data()[math::index(_X, _Y, _D, this->Height, this->Depth)] = _Val; }
+		inline auto read ( const u64 _X, const u64 _Y, const u64 _D ) -> T { return this->Data()[math::index_c(_X, _Y, _D, this->Height, this->Depth)]; }
+		inline auto write ( const u64 _X, const u64 _Y, const u64 _D, const T _Val ) -> void { this->Data()[math::index_c(_X, _Y, _D, this->Height, this->Depth)] = _Val; }
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Flatten image to single channel.
