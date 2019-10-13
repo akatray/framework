@@ -7,8 +7,7 @@
 // Imports.
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #include "Types.hpp"
-#include <iostream>
-#include <fstream>
+#include "Error.hpp"
 #include <vector>
 #include <filesystem>
 
@@ -18,57 +17,41 @@
 namespace fx::files
 {
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Collect all files in target directory. Optionaly do same for subdirectories.
+	// Collect all files in directory. Optionaly do same for subdirectories.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto buildFileList ( str _TargetDir, bool _IncludeSubdirs = false ) -> std::vector<std::filesystem::path>
+	auto buildFileList ( const str& _Dir, const bool _Recursive = false ) -> std::vector<std::filesystem::path>
 	{
 		std::vector<std::filesystem::path> Files;
-		std::vector<std::filesystem::path> Directories;
 
-		for(auto& Entry : std::filesystem::directory_iterator(_TargetDir))
+		try
 		{
-			if(Entry.is_regular_file())	Files.push_back(Entry.path());
-			if(Entry.is_directory() && _IncludeSubdirs) Directories.push_back(Entry.path());
-		}
-
-		if(_IncludeSubdirs)
-		{
-			for(auto& Directory : Directories)
+			if(_Recursive)
 			{
-				auto DeepFile = buildFileList(Directory.string(), true); // Recursive scan.
+				for(auto& Entry : std::filesystem::recursive_directory_iterator(_Dir))
+				{
+					if(Entry.is_regular_file())	Files.push_back(Entry.path());
+				}
+			}
 
-				Files.insert(Files.end(), std::make_move_iterator(DeepFile.begin()), std::make_move_iterator(DeepFile.end())); // Append filenames.
+			else
+			{
+				for(auto& Entry : std::filesystem::directory_iterator(_Dir))
+				{
+					if(Entry.is_regular_file())	Files.push_back(Entry.path());
+				}
 			}
 		}
 
-		return Files; // Return filenames.
-	}
-	
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Load text file.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto loadText ( const str& _Filename ) -> str
-	{
-		auto File = std::ifstream(_Filename);
-
-		if(File.is_open())
+		catch (const std::exception& e)
 		{
-			auto Text = str();
-		
-			while(!File.eof())
-			{
-				auto Line = str();
-				std::getline(File, Line);
-
-				Text += Line + str("\n");
-			}
-
-			return Text;
+			throw Error("fx::files", "", "buildFileList", 0, e.what());
 		}
 
-		std::cout << "Error[fx->Files->loadText]\n";
-		std::cout << "   Failed to open: " << _Filename << "!\n";
-		return _Filename;
+		catch (...)
+		{
+			throw Error("fx::files", "", "buildFileList", 0, "Unknown exception!");
+		}
+
+		return Files;
 	}
 }
-

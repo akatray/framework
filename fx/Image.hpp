@@ -36,7 +36,8 @@ namespace fx::img
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	constexpr auto ERR_DATA_NULL = u64(1);
 	constexpr auto ERR_IMAGE_NOT_FLAT = u64(2); // Had depth != 1.
-	
+	constexpr auto ERR_IMAGE_INCONSISTENT_DIM = u64(3);
+
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Enum for image file formats.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -90,6 +91,8 @@ namespace fx::img
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	const r32 KernelBoxBlur3x3[] = {0.11111f, 0.11111f, 0.11111f, 0.11111f, 0.11111f, 0.11111f, 0.11111f, 0.11111f, 0.11111f};
 	const r32 KernelBoxBlur5x5[] = {0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f, 0.04f};
+
+
 
 }
 
@@ -221,6 +224,8 @@ namespace fx
 		// Trivial functions.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		inline auto operator() ( void ) -> Buffer<T>&  { return this->Data; }
+		inline auto operator[] ( const u64 _Index ) const -> T& { return this->Data[_Index]; }
+		inline auto isNull ( void ) const -> bool { if(this->Data()) return false; else return true; }
 		inline auto width ( void ) const -> u64 { return this->Width; }
 		inline auto height ( void ) const -> u64 { return this->Height; }
 		inline auto depth ( void ) const -> u64 { return this->Depth; }
@@ -356,55 +361,11 @@ namespace fx
 		}
 
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Splits channels into separate images.
+		// Copy in sizeInBytes() amount of bytes from _Src.
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto split ( void ) -> std::vector<Image<T>>
+		auto copyIn ( const T* _Src ) -> void
 		{
-			if(this->Data())
-			{
-				auto Channels = std::vector<Image<T>>();
-				auto cn = u64(0);
-			
-				for(auto d = u64(0); d < this->Depth; ++d) Channels.push_back(Image<T>(this->Width, this->Height, 1, this->Data.allocator()));
-
-				for(auto c = u64(0); c < this->size(); c += this->Depth)
-				{
-					for(auto d = u64(0); d < this->Depth; ++d) Channels[d]()[cn] = this->Data[c + d];
-					++cn;
-				}
-
-				return Channels;
-			}
-
-			else throw Error("fx", "Image<T>", "split", img::ERR_DATA_NULL, "Data was nullptr.");
-		}
-
-		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Merge single channel images into one multi channel image.
-		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto merge ( std::vector<Image<T>>& _Channels ) -> void
-		{
-			if(this->Data())
-			{
-				for(auto& Channel : _Channels) if(Channel.depth() != 1) throw Error("fx", "Image<T>", "merge", img::ERR_IMAGE_NOT_FLAT, "One of images was not flat.");
-				
-				auto NewImage = Image<T>(this->Width, this->Height, _Channels.size(), this->Data.allocator());
-				auto IdxColSrc = u64(0);
-
-				for(auto IdxColDst = u64(0); IdxColDst < NewImage.size(); IdxColDst += NewImage.depth())
-				{
-					for(auto IdxCh = u64(0); IdxCh < NewImage.depth(); ++IdxCh)
-					{
-						NewImage()[IdxColDst + IdxCh] = _Channels[IdxCh]()[IdxColSrc];
-					}
-					
-					++IdxColSrc;
-				}
-
-				*this = std::move(NewImage);
-			}
-
-			else throw Error("fx", "Image<T>", "split", img::ERR_DATA_NULL, "Data was nullptr.");
+			std::memcpy(this->Data(), _Src, this->sizeInBytes());
 		}
 
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -595,4 +556,68 @@ namespace fx
 			else throw str("fx->Image->save(") + _Filename + str("): Data was nullptr!");
 		}
 	};
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// Framework: Image operations.
+// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+namespace fx::img
+{
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Splits channels into separate images.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	template<class T> auto split ( const Image<T>& _Src, Allocator& _Alloc = AllocDef ) -> std::vector<Image<T>>
+	{
+		if(_Src.isNull()) throw Error("fx::img", "", "split", img::ERR_DATA_NULL, "Image is empty.");
+
+
+		auto Channels = std::vector<Image<T>>();
+		for(auto IdxCh = u64(0); IdxCh < _Src.depth(); ++IdxCh) Channels.push_back(Image<T>(_Src.width(), _Src.height(), 1, _Alloc));
+
+
+		auto IdxColDst = u64(0);
+
+		for(auto IdxColSrc = u64(0); IdxColSrc < _Src.size(); IdxColSrc += _Src.depth())
+		{
+			for(auto IdxCh = u64(0); IdxCh < _Src.depth(); ++IdxCh) Channels[IdxCh][IdxColDst] = _Src[IdxColSrc + IdxCh];
+			++IdxColDst;
+		}
+
+
+		return Channels;
+	}
+	
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Merge single channel images into one multi channel image.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	template<class T> auto merge ( const std::vector<Image<T>>& _Channels, Allocator& _Alloc = AllocDef ) -> Image<T>
+	{
+		auto Width = _Channels[0].width();
+		auto Height = _Channels[0].height();
+		
+
+		for(auto& Channel : _Channels)
+		{
+			if(Channel.isNull()) throw Error("fx::img", "", "merge", img::ERR_DATA_NULL, "Image is empty.");
+			if(Channel.depth() != 1) throw Error("fx::img", "", "merge", img::ERR_IMAGE_NOT_FLAT, "Image is not flat.");
+			if(Channel.width() != Width) throw Error("fx::img", "", "merge", img::ERR_IMAGE_INCONSISTENT_DIM, "Inconsistent dimensions!");
+			if(Channel.height() != Height) throw Error("fx::img", "", "merge", img::ERR_IMAGE_INCONSISTENT_DIM, "Inconsistent dimensions!");
+		}
+		
+
+		auto NewImage = Image<T>(Width, Height, _Channels.size(), _Alloc);
+		auto IdxColSrc = u64(0);
+
+		for(auto IdxColDst = u64(0); IdxColDst < NewImage.size(); IdxColDst += NewImage.depth())
+		{
+			for(auto IdxCh = u64(0); IdxCh < NewImage.depth(); ++IdxCh)
+			{
+				NewImage[IdxColDst + IdxCh] = _Channels[IdxCh][IdxColSrc];
+			}
+					
+			++IdxColSrc;
+		}
+
+		return NewImage;
+	}
 }

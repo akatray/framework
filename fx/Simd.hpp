@@ -14,26 +14,21 @@
 // Definitions.
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Select one.
-//#define FX_SIMD_NOCASH
+//#define FX_SIMD_NOTHING
 //#define FX_SIMD_SSE
 #define FX_SIMD_AVX
-
-#define FX_SIMD_FUSEDOPS
+//#define FX_SIMD_FUSEDOPS
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Framework - Python can go fuck itself.
-// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Performance measurements proves that turning optimizer on, render this pointless.
-// Runs somewhat fast in debug mode though.
+// Framework: Vectorization.
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 namespace fx::simd
 {
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// No cash renaming.
+	// Nothing.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	#ifdef FX_SIMD_NOCASH
-		#define ALIGMENT_PS 8
-		constexpr auto SIMD_ALIGNMENT = u64(8);
+	#ifdef FX_SIMD_NOTHING
+		constexpr auto ALIGNMENT = u64(8);
 		#define UNIT_PS 1
 	#endif
 
@@ -41,8 +36,7 @@ namespace fx::simd
 	// SSE renaming.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	#ifdef FX_SIMD_SSE
-		#define ALIGMENT_PS 16
-		constexpr auto SIMD_ALIGNMENT = u64(16);
+		constexpr auto ALIGNMENT = u64(16);
 		#define UNIT_PS 4
 		
 		#define LOAD_PS _mm_load_ps
@@ -59,8 +53,7 @@ namespace fx::simd
 	// AVX renaming.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	#ifdef FX_SIMD_AVX
-		#define ALIGMENT_PS 32
-		constexpr auto SIMD_ALIGNMENT = u64(32);
+		constexpr auto ALIGNMENT = u64(32);
 		#define UNIT_PS 8
 		
 		#define LOAD_PS _mm256_load_ps
@@ -91,36 +84,11 @@ namespace fx::simd
 	// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Aligned allocation/deallocation.
 	// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<class T> auto allocAligned ( const u64 _Size, const u64 _Alignment = ALIGMENT_PS ) -> T* { return reinterpret_cast<T*>(_mm_malloc(_Size * sizeof(T), _Alignment)); }
+	template<class T> auto allocAligned ( const u64 _Size, const u64 _Alignment = ALIGNMENT ) -> T* { return reinterpret_cast<T*>(_mm_malloc(_Size * sizeof(T), _Alignment)); }
 	template<class T> auto freeAligned ( T* _Ptr ) -> void { _mm_free(_Ptr); }
 
-
-
-
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Aligned allocator.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template <class T> struct AllocAlign
-	{
-		u64 Alignment;
-		using value_type = T;
-
-		AllocAlign ( void ) noexcept { this->Alignment = SIMD_ALIGNMENT; }
-		AllocAlign ( u64 _Alignment ) noexcept { this->Alignment = _Alignment; }
-		template <class U> AllocAlign ( AllocAlign<U> const& ) noexcept {}
-
-		auto allocate ( std::size_t _Count ) -> value_type* { static_cast<value_type*>(_mm_malloc(_Count * sizeof(value_type), this->Aligment)); }
-		auto deallocate ( value_type* _Pointer, std::size_t ) noexcept -> void  { _mm_free(_Pointer); }
-	};
-
-	template <class T, class U> bool operator==(AllocAlign<T> const&, AllocAlign<U> const&) noexcept{return true;}
-	template <class T, class U> bool operator!=(AllocAlign<T> const& x, AllocAlign<U> const& y) noexcept {return !(x == y);}
-
-
-
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// That rare case.
+	// Aligned memory provider.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	class AllocatorAligned : public Allocator
 	{
@@ -131,40 +99,19 @@ namespace fx::simd
 		public:
 		
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Default constructor.
+		// Trivial.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		AllocatorAligned ( void ) : Alignment(32) {}
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Explicit constructor.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		AllocatorAligned ( void ) : Alignment(ALIGNMENT) {}
 		AllocatorAligned ( const u64 _Aligment ) : Alignment(_Aligment) {}
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Destructor.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		~AllocatorAligned ( void ) final {}
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Allocate memory. Size in bytes.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		auto alloc ( const u64 _Size ) -> ptr final { return _mm_malloc(_Size, this->Alignment); }
-
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		// Free memory.
-		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		auto free ( void* _Pointer ) -> void final { _mm_free(_Pointer); }
 	};
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Default aligned memory provider.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto AllocSimd = AllocatorAligned(ALIGMENT_PS);
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Increase size to fit whole number of simd units.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	inline auto adjustSize ( const u64 _Size ) -> u64 { return u64(UNIT_PS * std::ceil(r32(_Size) / UNIT_PS)); }
+	auto AllocSimd = AllocatorAligned(ALIGNMENT);
 
 	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	//  Out += Vec0[] * Vec1[]
@@ -172,14 +119,15 @@ namespace fx::simd
 	inline auto mulVecByVecSum ( const u64 _VecSize, const r32* _Vec0, const r32* _Vec1 ) -> r32
 	{
 		// Reference version.
-		#ifdef FX_SIMD_NOCASH
+		#ifdef FX_SIMD_NOTHING
 			auto Sum = r32(0.0f);
-			for(auto f = u64(0); f < _VecSize; ++f) Sum += _Vec0[f] * _Vec1[f];
+			for(auto f = u64(0); f < _VecSize; ++f) Sum += (_Vec0[f] * _Vec1[f]);
 			return Sum;
 
 		// Vectorized version.
 		#else
-			auto Fragments = u64(_VecSize / UNIT_PS);
+			auto Fragments = u64(std::floor(r32(_VecSize) / UNIT_PS));
+			auto Partial = _VecSize - (Fragments * UNIT_PS);
 
 			auto Vec0 = SETZERO_PS();
 			auto Vec1 = SETZERO_PS();
@@ -202,67 +150,31 @@ namespace fx::simd
 			}
 
 			auto Unpack = reinterpret_cast<r32*>(&Sum);
-
-			#ifdef FX_SIMD_SSE
-				return (Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3]);
-			#endif
-
-			#ifdef FX_SIMD_AVX
-				return (Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3] + Unpack[4] + Unpack[5] + Unpack[6] + Unpack[7]);
-			#endif
-		#endif
-	}
-
-	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	//  Out += Vec0[] * Const
-	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	inline auto mulVecByConstSum ( u64 _VecSize,  r32* _Vec0, r32 _Const ) -> r32
-	{
-		// Reference version.
-		#ifdef FX_SIMD_NOCASH
-			auto Sum = r32(0.0f);
-			for(auto f = u64(0); f < _VecSize; ++f) Sum += _Vec0[f] * _Const;
-			return Sum;
-
-		// Vectorized version.
-		#else
-			auto Fragments = u64(_VecSize / UNIT_PS);
-
-			auto Vec0 = SETZERO_PS();
-			auto Sum = SETZERO_PS();
-
-			#ifdef FX_SIMD_SSE
-				auto Const = _mm_set_ps(_Const, _Const, _Const, _Const);
-			#endif
-
-			#ifdef FX_SIMD_AVX
-				auto Const = _mm256_set_ps(_Const, _Const, _Const, _Const, _Const, _Const, _Const, _Const);
-			#endif
-
-			for(auto f = u64(0); f < Fragments; ++f)
+			
+			if(Partial == 0)
 			{
-				Vec0 = LOAD_PS(_Vec0);
-				
-				#ifdef FX_SIMD_FUSEDOPS
-					Sum = FMADD_PS(Vec0, Const, Sum);
-				#else
-					
-					Vec0 = MUL_PS(Vec0, Const);
-					Sum = ADD_PS(Sum, Vec0);
+				#ifdef FX_SIMD_SSE
+					return (Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3]);
 				#endif
 
-				_Vec0 += UNIT_PS;
+				#ifdef FX_SIMD_AVX
+					return (Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3] + Unpack[4] + Unpack[5] + Unpack[6] + Unpack[7]);
+				#endif
 			}
 
-			auto Unpack = reinterpret_cast<r32*>(&Sum);
+			else
+			{
+				auto PartialSum = r32(0.0f);
+				for(auto f = u64(0); f < _VecSize; ++f) PartialSum += (_Vec0[f] * _Vec1[f]);
+				
+				#ifdef FX_SIMD_SSE
+					return PartialSum + (Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3]);
+				#endif
 
-			#ifdef FX_SIMD_SSE
-				return (Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3]);
-			#endif
-
-			#ifdef FX_SIMD_AVX
-				return (Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3] + Unpack[4] + Unpack[5] + Unpack[6] + Unpack[7]);
-			#endif
+				#ifdef FX_SIMD_AVX
+					return PartialSum + (Unpack[0] + Unpack[1] + Unpack[2] + Unpack[3] + Unpack[4] + Unpack[5] + Unpack[6] + Unpack[7]);
+				#endif
+			}
 		#endif
 	}
 
@@ -272,8 +184,8 @@ namespace fx::simd
 	inline auto mulVecByConstAddToOut ( const u64 _VecSize, r32* _VecOut, const r32* _Vec0, const r32 _Const ) -> void
 	{
 		// Reference version.
-		#ifdef FX_SIMD_NOCASH
-			for(auto f = u64(0); f < _VecSize; ++f) _VecOut[f] += _Vec0[f] * _Const;
+		#ifdef FX_SIMD_NOTHING
+			for(auto f = u64(0); f < _VecSize; ++f) _VecOut[f] += (_Vec0[f] * _Const);
 		
 		// Vectorized version.
 		#else
@@ -284,11 +196,11 @@ namespace fx::simd
 			auto Vec0 = SETZERO_PS();
 
 			#ifdef FX_SIMD_SSE
-				auto Const = _mm_set_ps(_Const, _Const, _Const, _Const);
+				const auto Const = _mm_set_ps(_Const, _Const, _Const, _Const);
 			#endif
 
 			#ifdef FX_SIMD_AVX
-				auto Const = _mm256_set_ps(_Const, _Const, _Const, _Const, _Const, _Const, _Const, _Const);
+				const auto Const = _mm256_set_ps(_Const, _Const, _Const, _Const, _Const, _Const, _Const, _Const);
 			#endif
 
 			for(auto f = u64(0); f < Fragments; ++f)
@@ -309,7 +221,7 @@ namespace fx::simd
 				_Vec0 += UNIT_PS;
 			}
 
-			if(Partial != 0) for(auto f = u64(0); f < Partial; ++f) _VecOut[f] += _Vec0[f] * _Const;
+			if(Partial != 0) for(auto f = u64(0); f < Partial; ++f) _VecOut[f] += (_Vec0[f] * _Const);
 
 		#endif
 	}
@@ -317,11 +229,11 @@ namespace fx::simd
 	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	//  OutVec[] -= Vec0[] * Const
 	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	inline auto mulVecByConstSubFromOut ( const u64 _VecSize, r32* _VecOut, const r32* _Vec0, const r32 _Const) -> void
+	inline auto mulVecByConstSubFromOut ( const u64 _VecSize, r32* _VecOut, const r32* _Vec0, const r32 _Const ) -> void
 	{
 		// Reference version.
-		#ifdef FX_SIMD_NOCASH
-			for(auto f = u64(0); f < _VecSize; ++f) _VecOut[f] -= _Vec0[f] * _Const;
+		#ifdef FX_SIMD_NOTHING
+			for(auto f = u64(0); f < _VecSize; ++f) _VecOut[f] -= (_Vec0[f] * _Const);
 		
 		// Vectorized version.
 		#else
@@ -332,11 +244,11 @@ namespace fx::simd
 			auto Vec0 = SETZERO_PS();
 
 			#ifdef FX_SIMD_SSE
-				auto Const = _mm_set_ps(_Const, _Const, _Const, _Const);
+				const auto Const = _mm_set_ps(_Const, _Const, _Const, _Const);
 			#endif
 
 			#ifdef FX_SIMD_AVX
-				auto Const = _mm256_set_ps(_Const, _Const, _Const, _Const, _Const, _Const, _Const, _Const);
+				const auto Const = _mm256_set_ps(_Const, _Const, _Const, _Const, _Const, _Const, _Const, _Const);
 			#endif
 
 			for(auto f = u64(0); f < Fragments; ++f)
@@ -353,7 +265,7 @@ namespace fx::simd
 				_Vec0 += UNIT_PS;
 			}
 
-			if(Partial != 0) for(auto f = u64(0); f < Partial; ++f) _VecOut[f] -= _Vec0[f] * _Const;
+			if(Partial != 0) for(auto f = u64(0); f < Partial; ++f) _VecOut[f] -= (_Vec0[f] * _Const);
 
 		#endif
 	}
