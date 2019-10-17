@@ -17,10 +17,22 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
+#pragma warning(push)
 #pragma warning(disable:4996)
+#pragma warning(disable:26451)
+#pragma warning(disable:26812)
+#pragma warning(disable:6385)
+#pragma warning(disable:6262)
+#pragma warning(disable:6001)
+#pragma warning(disable:28182)
+#pragma warning(disable:6308)
+#pragma warning(disable:6387)
+#pragma warning(disable:6386)
 #include "./dep/stb_image.h"
 #include "./dep/stb_image_write.h"
 #include "./dep/stb_image_resize.h"
+#pragma warning(pop)
+
 #include <iostream>
 #include <fstream>
 #include <type_traits>
