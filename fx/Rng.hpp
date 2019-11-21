@@ -48,7 +48,7 @@ namespace fx::rng
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Fill buffer with random numbers.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<class T> auto rbuf ( T* _Buffer, const u64 _Size, const T _Lower, const T _Upper, const u32 _Seed = 0 ) -> void
+	template<class T> auto rbuf ( const u64 _Size, T* _Buffer, const T _Lower, const T _Upper, const u32 _Seed = 0 ) -> void
 	{
 		auto Seed = u32(0);
 		if(_Seed == 0) Seed = std::random_device()();

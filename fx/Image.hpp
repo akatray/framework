@@ -29,6 +29,9 @@
 #include "./dep/stb_image_write.h"
 #include "./dep/stb_image_resize.h"
 #pragma warning(pop)
+#undef STB_IMAGE_IMPLEMENTATION
+#undef STB_IMAGE_WRITE_IMPLEMENTATION
+#undef STB_IMAGE_RESIZE_IMPLEMENTATION
 
 #include <iostream>
 #include <fstream>
@@ -49,24 +52,13 @@ namespace fx::img
 	constexpr auto ERR_INCONSISTENT_DIM = u64(4);
 	constexpr auto ERR_UNKNOWN_FORMAT = u64(5);
 	constexpr auto ERR_LOAD_FAILED = u64(6);
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Enum for image file formats.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	enum struct FileFormat
-	{
-		AUTO,
-		UNDEFINED,
-		JPG,
-		PNG,
-		BMP,
-		GIF,
-		PSD
-	};
+	constexpr auto ERR_FAILED_TO_OPEN = u64(7);
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Peek image format by magic numbers.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	enum struct FileFormat { AUTO, NO_FILE, UNDEFINED, JPG, PNG, BMP, GIF, PSD };
+
 	auto peekFormat ( const str& _Filename ) -> FileFormat
 	{
 		auto File = std::ifstream(_Filename, std::ios::binary);
@@ -81,9 +73,11 @@ namespace fx::img
 			if((Sample[0] == 0x42) && (Sample[1] == 0x4D)) return FileFormat::BMP;
 			if((Sample[0] == 0x47) && (Sample[1] == 0x49) && (Sample[2] == 0x46) && (Sample[3] == 0x38)) return FileFormat::GIF;
 			if((Sample[0] == 0x38) && (Sample[1] == 0x42) && (Sample[2] == 0x50) && (Sample[3] == 0x53)) return FileFormat::PSD;
+
+			return FileFormat::UNDEFINED;
 		}
 
-		return FileFormat::UNDEFINED;
+		return FileFormat::NO_FILE;
 	}
 }
 
@@ -138,29 +132,27 @@ namespace fx
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		template<class C> auto operator= ( const Image<C>& _Right ) -> Image<T>&
 		{
-			static_assert(std::is_same_v<T, u8> || std::is_same_v<T, r32>, "fx::Image<T>::operator=<C> | Output type not implemented.");
-			static_assert(std::is_same_v<C, u8> || std::is_same_v<C, r32>, "fx::Image<T>::operator=<C> | Input type not implemented.");
-
-			
 			this->Width = _Right.Width;
 			this->Height = _Right.Height;
 			this->Depth = _Right.Depth;
 			this->Data.resize(this->size());
 
 
-			if constexpr((std::is_same<T, r32>::value) && (std::is_same<C, u8>::value))
+			// Integer to real converter.
+			if constexpr (std::is_integral_v<C> && std::is_floating_point_v<T>)
 			{
-				for(auto IdxCom = u64(0); IdxCom < this->size(); ++IdxCom) this->Data[IdxCom] = (1.0f / 255) * _Right.Data[IdxCom];
+				for(auto IdxCom = u64(0); IdxCom < this->size(); ++IdxCom) this->Data[IdxCom] = (T(1.0) / maxVal<C>()) * _Right.Data[IdxCom];
 			}
 
 
-			if constexpr((std::is_same<T, u8>::value) && (std::is_same<C, r32>::value))
+			// Real to integer converter.
+			if constexpr(std::is_floating_point_v<C> && std::is_integral_v<T>)
 			{
 				const auto [ValMin, ValMax] = std::minmax_element(_Right.Data.begin(), _Right.Data.end());
 
 				for(auto IdxCom = u64(0); IdxCom < this->size(); ++IdxCom)
 				{
-					this->Data[IdxCom] = u8(255) * math::normalize<r32>(_Right[IdxCom], *ValMin, *ValMax);
+					this->Data[IdxCom] = maxVal<T>() * math::normalize(_Right[IdxCom], *ValMin, *ValMax);
 				}
 			}
 			
@@ -213,7 +205,8 @@ namespace fx
 			static_assert(std::is_same_v<T, u8>, "fx::Image<T>::load | Type not implemented.");
 
 			auto Format = img::peekFormat(_Filename);
-			if(Format == img::FileFormat::UNDEFINED) throw Error("fx", "Image<T>", "load", img::ERR_UNKNOWN_FORMAT, "Unknown file format.");
+			if(Format == img::FileFormat::NO_FILE) throw Error("fx"s, "Image<T>"s, "load"s, img::ERR_FAILED_TO_OPEN, "Failed to open file: "s + _Filename);
+			if(Format == img::FileFormat::UNDEFINED) throw Error("fx"s, "Image<T>"s, "load"s, img::ERR_UNKNOWN_FORMAT, "Unknown file format: "s + _Filename);
 			
 
 			auto Width = i32(0);
@@ -221,7 +214,7 @@ namespace fx
 			auto Depth = i32(0);
 
 			auto ImageData = stbi_load(_Filename.c_str(), &Width, &Height, &Depth, 0);
-			if(ImageData == NULL) throw Error("fx", "Image<T>", "load", img::ERR_LOAD_FAILED, "Failed to load.");
+			if(ImageData == NULL) throw Error("fx"s, "Image<T>"s, "load"s, img::ERR_LOAD_FAILED, "stbi_load() returned NULL: "s + _Filename);
 
 
 			this->Width = Width;
@@ -240,7 +233,7 @@ namespace fx
 		auto save ( const str& _Filename, const img::FileFormat _Format = img::FileFormat::AUTO ) const -> void
 		{
 			static_assert(std::is_same_v<T, u8>, "fx::Image<T>::save | Type not implemented.");
-			if(this->isEmpty()) throw Error("fx", "Image<T>", "save", img::ERR_EMPTY, "Image is empty.");
+			if(this->isEmpty()) throw Error("fx"s, "Image<T>"s, "save"s, img::ERR_EMPTY, "Image is empty: "s + _Filename);
 			
 
 			if(_Format == img::FileFormat::AUTO) stbi_write_jpg(_Filename.c_str(), i32(this->Width), i32(this->Height), i32(this->Depth), this->Data.data(), 90);

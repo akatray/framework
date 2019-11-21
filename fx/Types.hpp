@@ -7,6 +7,7 @@
 // Imports.
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <type_traits>
 
@@ -54,6 +55,55 @@ namespace fx
 	static_assert(sizeof(r32) == 4, "Size of fx::r32 is not 4!");
 	static_assert(sizeof(r64) == 8, "Size of fx::r64 is not 8!");
 
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Get minimum value type can hold.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	template<class T> constexpr auto minVal ( void )
+	{
+		if constexpr(std::is_integral_v<T>)
+		{
+			if constexpr(std::is_signed_v<T>)
+			{
+				if constexpr(std::is_same_v<T, i8>) return T(0x00);
+				if constexpr(std::is_same_v<T, i16>) return T(0x0000);
+				if constexpr(std::is_same_v<T, i32>) return T(0x00000000);
+				if constexpr(std::is_same_v<T, i64>) return T(0x0000000000000000);
+			}
+			
+			else return T(0);
+		}
+
+		else static_assert(false, "Minimum value unknown!");
+	}
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Get maximum value type can hold.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	template<class T> constexpr auto maxVal ( void )
+	{
+		if constexpr(std::is_integral_v<T>)
+		{
+			if constexpr(std::is_signed_v<T>)
+			{
+				if constexpr(std::is_same_v<T, i8>) return i8(0xFF);
+				if constexpr(std::is_same_v<T, i16>) return i16(0xFFFF);
+				if constexpr(std::is_same_v<T, i32>) return i32(0xFFFFFFFF);
+				if constexpr(std::is_same_v<T, i64>) return i64(0xFFFFFFFFFFFFFFFF);
+			}
+			
+			else
+			{
+				if constexpr(std::is_same_v<T, u8>) return u8(0xFF);
+				if constexpr(std::is_same_v<T, u16>) return u16(0xFFFF);
+				if constexpr(std::is_same_v<T, u32>) return u32(0xFFFFFFFF);
+				if constexpr(std::is_same_v<T, u64>) return u64(0xFFFFFFFFFFFFFFFF);
+			}
+		}
+
+		else static_assert(false, "Maximum value unknown!");
+	}
+
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -71,57 +121,8 @@ namespace fx
 	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Enum for types.
+	// 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	enum struct TypeToken
-	{
-		U8,
-		U16,
-		U32,
-		U64,
-		I8,
-		I16,
-		I32,
-		I64,
-		R32,
-		R64
-	};
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Get type size by token.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	constexpr inline auto getTypeSize ( const TypeToken _Type ) -> u64
-	{
-		if(_Type == TypeToken::U8) return sizeof(u8);
-		if(_Type == TypeToken::U16) return sizeof(u16);
-		if(_Type == TypeToken::U32) return sizeof(u32);
-		if(_Type == TypeToken::U64) return sizeof(u64);
-		if(_Type == TypeToken::I8) return sizeof(i8);
-		if(_Type == TypeToken::I16) return sizeof(i16);
-		if(_Type == TypeToken::I32) return sizeof(i32);
-		if(_Type == TypeToken::I64) return sizeof(i64);
-		if(_Type == TypeToken::R32) return sizeof(r32);
-		if(_Type == TypeToken::R64) return sizeof(r64);
-
-		return 0;
-	}
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Get type name by token.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	inline auto getTypeName ( const TypeToken _Type ) -> str
-	{
-		if(_Type == TypeToken::U8) return str("u8");
-		if(_Type == TypeToken::U16) return str("u16");
-		if(_Type == TypeToken::U32) return str("u32");
-		if(_Type == TypeToken::U64) return str("u64");
-		if(_Type == TypeToken::I8) return str("i8");
-		if(_Type == TypeToken::I16) return str("i16");
-		if(_Type == TypeToken::I32) return str("i32");
-		if(_Type == TypeToken::I64) return str("i64");
-		if(_Type == TypeToken::R32) return str("r32");
-		if(_Type == TypeToken::R64) return str("r64");
-
-		return str("none");
-	}
+	template<class T> auto memZero ( const u64 _Size, T* _Dst ) { std::memset(_Dst, 0, _Size * sizeof(T)); }
+	template<class T> auto memCopy ( const u64 _Size, T* _Dst, const T* _Src ) { std::memcpy(_Dst, _Src, _Size * sizeof(T)); }
 }
