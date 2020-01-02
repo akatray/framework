@@ -20,7 +20,8 @@ namespace fx::math
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Constants.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	constexpr auto E = 2.71828;
+	constexpr auto EULER = 2.7182818284590452353602874713527;
+	//constexpr auto E = 2.71828;
 	constexpr auto PI = 3.14159;
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -54,7 +55,7 @@ namespace fx::math
 	template<class T> constexpr inline auto mag ( const u64 _Size, const T* _X ) -> T
 	{
 		auto Mag = T(0);
-		for(auto n = u64(0); n < _Size; ++n) Mag += sqr(_X[n]);
+		for(auto i = u64(0); i < _Size; ++i) Mag += sqr(_X[i]);
 		return std::sqrt(Mag);
 	}
 
@@ -67,9 +68,35 @@ namespace fx::math
 	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Get average value in _X[].
+	// Mean value of _X[].
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<class T> constexpr inline auto mean ( const u64 _Size, const T* _X ) -> T { return sum(_Size, _X) / _Size; }
+	template<class T> constexpr auto mean ( const uMAX _Size, const T* _X ) -> T { return std::accumulate(_X, _X + _Size, T(0)) / _Size; }
+	template<class T> constexpr auto mean_sqr ( const uMAX _Size, const T* _X ) -> T { return std::inner_product(_X, _X + _Size, _X, T(0)) / _Size; }
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Get standard deviation of _X[].
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	template<class T> constexpr auto stddev ( const uMAX _Size, const T* _X, const T _Mean ) -> T
+	{
+		return std::sqrt(std::accumulate(_X, _X + _Size, T(), [&]( T _Sum, T _Item ) { return _Sum + sqr(_Item - _Mean); }));
+	}
+
+	template<class T> constexpr auto stddev ( const uMAX _Size, const T* _X ) -> T
+	{
+		return stddev(_Size, _X, mean(_Size, _X));
+	}
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Get standard deviation of vector _X[].
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	template<class T> constexpr inline auto stddev_zeromean ( const u64 _Size, T* _X )
+	{
+		const auto Mean = mean(_Size, _X);
+		for(auto i = u64(0); i < _Size; ++i) _X[i] -= Mean;
+
+		const auto Deviation = std::sqrt(mean_sqr(_Size, _X) / _Size);
+		for(auto i = u64(0); i < _Size; ++i) _X[i] /= Deviation;
+	}
 	
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Linear interpolation.
@@ -153,27 +180,21 @@ namespace fx::math
 	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Logistic.
+	// 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<class T> inline auto sigmoid ( const T _X ) -> T { return (T(1.0) / (T(1.0) + std::pow(E, -_X))); }
-	template<class T> inline auto sigmoidDer ( const T _X ) -> T { return (sigmoid(_X) * (T(1.0) - sigmoid(_X))); }
-	template<class T> constexpr inline auto sigmoidDer2 ( const T _FX ) -> T { return (_FX * (T(1.0) - _FX)); }
+	template<class T> constexpr inline auto factorial ( const T _X ) -> T
+	{
+		auto Fact = T(1);
+		for(auto i = T(1); i <= _X; ++i) Fact *= i;
+		return Fact;
+	}
 
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// TanH.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<class T> inline auto tanh ( const T _X ) -> T { return (T(2.0) / (T(1.0) + std::pow(E, -_X * T(2.0)))) - T(1.0); }
-	template<class T> inline auto tanhDer2 ( const T _FX ) -> T { return T(1.0) - std::pow(_FX, T(2.0)); }
+	template<class T> constexpr inline auto exp ( const T _X ) -> T
+	{
+		auto Fact = T(1);
+		for(auto i = T(1); i <= _X; ++i) Fact *= i;
+		return Fact;
+	}
 
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// REctified Linear Unit.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<class T> constexpr inline auto relu ( const T _X ) -> T { return std::max(T(0.0), _X); }
-	template<class T> constexpr inline auto reluDer ( const T _X ) -> T { if(_X >= T(0.0)) return T(1.0); else return T(0.0); }
 
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Parametric REctified Linear Unit.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<class T> constexpr inline auto prelu (const T _X, const T _A = T(0.2) ) -> T { if(_X >= T(0.0)) return _X; else return _X * _A; }
-	template<class T> constexpr inline auto preluDer (const T _X, const T _A = T(0.2)) -> T { if(_X >= T(0.0)) return T(1.0); else return _A; }
 }

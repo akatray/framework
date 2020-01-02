@@ -142,12 +142,14 @@ namespace fx
 			if constexpr (std::is_integral_v<C> && std::is_floating_point_v<T>)
 			{
 				for(auto IdxCom = u64(0); IdxCom < this->size(); ++IdxCom) this->Data[IdxCom] = (T(1.0) / maxVal<C>()) * _Right.Data[IdxCom];
+				//for(auto IdxCom = u64(0); IdxCom < this->size(); ++IdxCom) this->Data[IdxCom] = _Right.Data[IdxCom];
 			}
 
 
 			// Real to integer converter.
 			if constexpr(std::is_floating_point_v<C> && std::is_integral_v<T>)
 			{
+				//for(auto IdxCom = u64(0); IdxCom < this->size(); ++IdxCom) this->Data[IdxCom] = _Right.Data[IdxCom];
 				const auto [ValMin, ValMax] = std::minmax_element(_Right.Data.begin(), _Right.Data.end());
 
 				for(auto IdxCom = u64(0); IdxCom < this->size(); ++IdxCom)
