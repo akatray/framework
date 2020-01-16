@@ -72,12 +72,4 @@ namespace fx::vops
 	{
 		for(auto i = uMAX(0); i < _Size; ++i) _Out[i] = _Vec0[i] - _Vec1[i];
 	}
-
-	template<class T> constexpr inline auto mulVecByVecSum ( const uMAX _Size, const T* _Vec0, const T* _Vec1 ) -> T
-	{
-		auto Sum = T(0.0);
-		for(auto i = uMAX(0); i < _Size; ++i) Sum += _Vec0[i] * _Vec1[i];
-		return Sum;
-	}
-	
 }

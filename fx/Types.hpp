@@ -35,7 +35,7 @@ namespace fx
 
 	using r32 = float;
 	using r64 = double;
-	using rMAX = double; // Max real integer.
+	using rMAX = long double; // Max real integer.
 
 	using str = std::string;
 	using namespace std::string_literals;
@@ -58,26 +58,43 @@ namespace fx
 	static_assert(sizeof(r32) == 4, "Size of fx::r32 is not 4!");
 	static_assert(sizeof(r64) == 8, "Size of fx::r64 is not 8!");
 
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Get name of a type.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	template<class T> constexpr inline auto nameof ( void )
+	{
+		if constexpr(std::is_same_v<T, ptr>) return str("ptr");
+		
+		else if constexpr(std::is_same_v<T, u8>) return str("u8");
+		else if constexpr(std::is_same_v<T, u16>) return str("u16");
+		else if constexpr(std::is_same_v<T, u32>) return str("u32");
+		else if constexpr(std::is_same_v<T, u64>) return str("u64");
+		
+		else if constexpr(std::is_same_v<T, i8>) return str("i8");
+		else if constexpr(std::is_same_v<T, i16>) return str("i16");
+		else if constexpr(std::is_same_v<T, i32>) return str("i32");
+		else if constexpr(std::is_same_v<T, i64>) return str("i64");
+
+		else if constexpr(std::is_same_v<T, r32>) return str("r32");
+		else if constexpr(std::is_same_v<T, r64>) return str("r64");
+
+		else static_assert(false, "Type name unknown!");
+	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Get minimum value type can hold.
+	// 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<class T> constexpr auto minVal ( void )
+	template<class T> constexpr inline auto initTypeMax ( void )
 	{
 		if constexpr(std::is_integral_v<T>)
 		{
-			if constexpr(std::is_signed_v<T>)
-			{
-				if constexpr(std::is_same_v<T, i8>) return T(0x00);
-				if constexpr(std::is_same_v<T, i16>) return T(0x0000);
-				if constexpr(std::is_same_v<T, i32>) return T(0x00000000);
-				if constexpr(std::is_same_v<T, i64>) return T(0x0000000000000000);
-			}
-			
-			else return T(0);
+			if constexpr(std::is_signed_v<T>) return iMAX(0);
+			else return uMAX(0);
 		}
 
-		else static_assert(false, "Minimum value unknown!");
+		else if constexpr(std::is_floating_point_v<T>) return rMAX(0);
+
+		else static_assert(false, "fx::initMaxType | Type not implemented.");
 	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -110,22 +127,6 @@ namespace fx
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<class T> constexpr auto initTypeMax ( void )
-	{
-		if constexpr(std::is_integral_v<T>)
-		{
-			if constexpr(std::is_signed_v<T>) return i64(0);
-			else return u64(0);
-		}
-
-		else if constexpr(std::is_floating_point_v<T>) return r64(0.0);
-
-		else static_assert(false, "fx::initMaxType | Type not implemented.");
-	}
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// 
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	template<class T> auto memZero ( const u64 _Size, T* _Dst ) { std::memset(_Dst, 0, _Size * sizeof(T)); }
-	template<class T> auto memCopy ( const u64 _Size, T* _Dst, const T* _Src ) { std::memcpy(_Dst, _Src, _Size * sizeof(T)); }
+	template<class T> auto memZero ( const uMAX _Size, T* _Dst ) { std::memset(_Dst, 0, _Size * sizeof(T)); }
+	template<class T> auto memCopy ( const uMAX _Size, T* _Dst, const T* _Src ) { std::memcpy(_Dst, _Src, _Size * sizeof(T)); }
 }

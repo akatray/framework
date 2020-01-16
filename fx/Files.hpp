@@ -19,9 +19,9 @@ namespace fx::files
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Collect all files in directory. Optionaly do same for subdirectories.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto buildFileList ( const str& _Dir, const bool _Recursive = false ) -> std::vector<std::filesystem::path>
+	auto buildFileList ( const str& _Dir, const bool _Recursive = false )
 	{
-		std::vector<std::filesystem::path> Files;
+		auto Files = std::vector<std::filesystem::path>();
 
 		try
 		{
@@ -58,18 +58,18 @@ namespace fx::files
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Get file name from string. (Name.Extension).
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto getName ( const str& _Filepath ) -> str
+	auto removeExtension ( const str& _Filepath )
 	{
-		for(auto c = i64(_Filepath.size()-1); c > 0; --c) if(_Filepath[c] == '.') return _Filepath.substr(0, c);
+		for(auto c = iMAX(_Filepath.size()-1); c > 0; --c) if(_Filepath[c] == '.') return _Filepath.substr(0, c);
 		return str();
 	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Get file extension from string. (Name.Extension).
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto getExtension ( const str& _Filepath ) -> str
+	auto getExtension ( const str& _Filepath )
 	{
-		for(auto c = i64(_Filepath.size()-1); c > 0; --c) if(_Filepath[c] == '.') return _Filepath.substr(c+1);
+		for(auto c = iMAX(_Filepath.size()-1); c > 0; --c) if(_Filepath[c] == '.') return _Filepath.substr(c+1);
 		return str();
 	}
 }

@@ -25,14 +25,14 @@ namespace fx
 		str Pk;
 		str Obj;
 		str Func;
-		u64 Code;
+		uMAX Code;
 		str Desc;
 		public:
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Trivial functions.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		Error ( const str& _Pk, const str& _Obj, const str& _Func, const u64 _Code, const str& _Desc = "Nothing.") : Pk(_Pk), Obj(_Obj), Func(_Func), Code(0), Desc(_Desc) {}
+		Error ( const str& _Pk, const str& _Obj, const str& _Func, const uMAX _Code, const str& _Desc = "Nothing.") : Pk(_Pk), Obj(_Obj), Func(_Func), Code(0), Desc(_Desc) {}
 		auto package ( void ) const -> str { return this->Pk; }
 		auto object ( void ) const -> str { return this->Obj; }
 		auto function ( void ) const -> str { return this->Func; }
@@ -42,7 +42,7 @@ namespace fx
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Output error report to given stream.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto print ( std::ostream& _Stream ) const -> void
+		auto print ( std::ostream& _Stream = std::cout ) const -> void
 		{
 			_Stream << "------------------------------------------------------------\n";
 			_Stream << "Error at: " << this->Pk << "::" << this->Obj << "::" << this->Func << "()\n";

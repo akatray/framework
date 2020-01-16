@@ -20,7 +20,7 @@ namespace fx::time
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Get time passed since the beginning of time. In milliseconds.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto getTimeMs ( void ) -> u64
+	auto getTimeMs ( void ) -> uMAX
 	{
 		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 	}
@@ -28,7 +28,7 @@ namespace fx::time
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Get time passed since the beginning of time. In microseconds.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto getTimeUs ( void ) -> u64
+	auto getTimeUs ( void ) -> uMAX
 	{
 		return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 	}
@@ -66,10 +66,10 @@ namespace fx::time
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Get event's time.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto timeNs ( const str& _Event ) -> u64 { return this->Events[_Event].count(); }
-		auto timeUs ( const str& _Event ) -> u64 { return std::chrono::duration_cast<std::chrono::microseconds>(this->Events[_Event]).count(); }
-		auto timeMs ( const str& _Event ) -> u64 { return std::chrono::duration_cast<std::chrono::milliseconds>(this->Events[_Event]).count(); }
-		auto timeSc ( const str& _Event ) -> u64 { return std::chrono::duration_cast<std::chrono::seconds>(this->Events[_Event]).count(); }
+		auto timeNs ( const str& _Event ) -> uMAX { return this->Events[_Event].count(); }
+		auto timeUs ( const str& _Event ) -> uMAX { return std::chrono::duration_cast<std::chrono::microseconds>(this->Events[_Event]).count(); }
+		auto timeMs ( const str& _Event ) -> uMAX { return std::chrono::duration_cast<std::chrono::milliseconds>(this->Events[_Event]).count(); }
+		auto timeSc ( const str& _Event ) -> uMAX { return std::chrono::duration_cast<std::chrono::seconds>(this->Events[_Event]).count(); }
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Time last event and start new one.
@@ -96,8 +96,7 @@ namespace fx::time
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Time last event.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto finish ( void ) -> void { this->begin("finish"); }
-
+		auto finish ( void ) { this->begin("finish"); }
 	};
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -108,8 +107,8 @@ namespace fx::time
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Members.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		u64 LastTime;
-		u64 Cycle;
+		uMAX LastTime;
+		uMAX Cycle;
 		public:
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -120,12 +119,12 @@ namespace fx::time
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Explicit constructor.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		CyclicClock ( const u64 _Cycle ) : LastTime(getTimeMs()), Cycle(_Cycle) {}
+		CyclicClock ( const uMAX _Cycle ) : LastTime(getTimeMs()), Cycle(_Cycle) {}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Return true if its time for the event. Resets if true, was returned.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto isReady ( void ) -> bool
+		auto isReady ( void )
 		{
 			if((getTimeMs() - this->LastTime) >= this->Cycle)
 			{
